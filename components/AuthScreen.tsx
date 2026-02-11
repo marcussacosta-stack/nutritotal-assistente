@@ -61,7 +61,18 @@ const AuthScreen: React.FC<Props> = ({ onLogin }) => {
         }
       }
     } catch (e) {
-      setError("Ocorreu um erro de conexão. Tente novamente.");
+      const errorMessage = e instanceof Error ? e.message : "Erro desconhecido";
+      console.error("Auth Error:", e);
+      
+      // Check if it looks like a missing URL config
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
+        setError("Erro de Configuração: Conexão com banco de dados não configurada. Verifique as variáveis de ambiente na Vercel (VITE_SUPABASE_URL).");
+      } else if (errorMessage.includes("Failed to fetch")) {
+        setError("Falha na conexão. Verifique sua internet ou se as chaves da API estão corretas.");
+      } else {
+        setError("Ocorreu um erro. Tente novamente.");
+      }
     } finally {
       setLoading(false);
     }
