@@ -43,27 +43,35 @@ const AuthScreen: React.FC<Props> = ({ onLogin }) => {
         if (result.success && result.user) {
           onLogin(result.user);
         } else {
-          setError(result.message || "Erro ao entrar. Verifique suas credenciais.");
+          const msg = result.message || "Erro ao entrar.";
+          if (msg.includes("Failed to fetch")) {
+            setError("Erro de Conexão: O app não conseguiu acessar o banco de dados. Verifique se a URL do Supabase está configurada nas Variáveis de Ambiente da Vercel.");
+          } else {
+            setError(msg);
+          }
         }
       } else {
         const result = await registerUser(email, password);
         if (result.success) {
           setSuccess("Conta criada com sucesso! Verifique seu email para confirmar ou faça login.");
           if (result.user) {
-             // Tenta logar automaticamente se a sessão foi criada
-             onLogin(result.user);
+            onLogin(result.user);
           } else {
-             // Caso necessite confirmação de email, muda para tela de login após um tempo
-             setTimeout(() => setIsLogin(true), 3000);
+            setTimeout(() => setIsLogin(true), 3000);
           }
         } else {
-          setError(result.message || "Erro ao criar conta.");
+          const msg = result.message || "Erro ao criar conta.";
+          if (msg.includes("Failed to fetch")) {
+            setError("Erro de Conexão: O app não conseguiu acessar o banco de dados. Verifique se a URL do Supabase está configurada nas Variáveis de Ambiente da Vercel.");
+          } else {
+            setError(msg);
+          }
         }
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : "Erro desconhecido";
       console.error("Auth Error:", e);
-      
+
       // Check if it looks like a missing URL config
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
@@ -148,9 +156,8 @@ const AuthScreen: React.FC<Props> = ({ onLogin }) => {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all ${
-                    confirmPassword && password !== confirmPassword ? 'border-red-300 focus:border-red-300 focus:ring-red-200' : 'border-gray-200'
-                  }`}
+                  className={`w-full pl-10 pr-4 py-3 bg-gray-50 border rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all ${confirmPassword && password !== confirmPassword ? 'border-red-300 focus:border-red-300 focus:ring-red-200' : 'border-gray-200'
+                    }`}
                   placeholder="Repita sua senha"
                   required
                 />
@@ -172,8 +179,8 @@ const AuthScreen: React.FC<Props> = ({ onLogin }) => {
         </form>
       </div>
       <p className="mt-8 text-xs text-gray-400 text-center max-w-[250px] mx-auto leading-relaxed">
-        {isLogin 
-          ? "Esqueceu sua senha? Entre em contato com o suporte." 
+        {isLogin
+          ? "Esqueceu sua senha? Entre em contato com o suporte."
           : "Ao se cadastrar, seus dados de saúde serão armazenados de forma segura e privada."}
       </p>
     </div>
