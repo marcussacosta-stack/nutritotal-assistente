@@ -280,6 +280,10 @@ const App: React.FC = () => {
     );
   }
 
+  if (view === 'debug') {
+    return <DebugView />;
+  }
+
   if (view === 'auth') {
     return (
       <Container>
