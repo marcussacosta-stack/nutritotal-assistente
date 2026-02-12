@@ -16,11 +16,11 @@ const Container: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
-import DebugView from './components/DebugView';
+// import DebugView from './components/DebugView'; // Removed
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-  const [view, setView] = useState<'auth' | 'onboarding' | 'shopping_review' | 'dashboard' | 'saved_plans' | 'progress' | 'debug'>('auth');
+  const [view, setView] = useState<'auth' | 'onboarding' | 'shopping_review' | 'dashboard' | 'saved_plans' | 'progress'>('auth');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // App Data
@@ -38,13 +38,6 @@ const App: React.FC = () => {
   // 1. Initial Load: Check Auth
   useEffect(() => {
     const initAuth = async () => {
-      // Secret Debug Mode
-      if (window.location.hash === '#debug') {
-        setView('debug');
-        setIsAuthChecking(false);
-        return;
-      }
-
       setIsAuthChecking(true);
       try {
         const user = await getCurrentUser();
@@ -278,10 +271,6 @@ const App: React.FC = () => {
         </div>
       </Container>
     );
-  }
-
-  if (view === 'debug') {
-    return <DebugView />;
   }
 
   if (view === 'auth') {
