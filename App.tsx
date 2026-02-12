@@ -16,18 +16,20 @@ const Container: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
+import DebugView from './components/DebugView';
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-  const [view, setView] = useState<'auth' | 'onboarding' | 'shopping_review' | 'dashboard' | 'saved_plans' | 'progress'>('auth');
+  const [view, setView] = useState<'auth' | 'onboarding' | 'shopping_review' | 'dashboard' | 'saved_plans' | 'progress' | 'debug'>('auth');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  
+
   // App Data
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyPlanData | null>(null);
   const [suggestedShoppingList, setSuggestedShoppingList] = useState<ShoppingListResult | null>(null);
   const [finalShoppingList, setFinalShoppingList] = useState<ShoppingListResult | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
-  
+
   // UI State
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,13 @@ const App: React.FC = () => {
   // 1. Initial Load: Check Auth
   useEffect(() => {
     const initAuth = async () => {
+      // Secret Debug Mode
+      if (window.location.hash === '#debug') {
+        setView('debug');
+        setIsAuthChecking(false);
+        return;
+      }
+
       setIsAuthChecking(true);
       try {
         const user = await getCurrentUser();
@@ -59,42 +68,42 @@ const App: React.FC = () => {
     const lastLog = user.logs.length > 0 ? user.logs[user.logs.length - 1] : null;
     const now = Date.now();
     const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-    
+
     // Condition: No logs OR last log was > 7 days ago
     const needsMeasurement = !lastLog || (now - lastLog.date > SEVEN_DAYS_MS);
 
     if (needsMeasurement) {
-       // Request permission first
-       if ("Notification" in window) {
-         if (Notification.permission === "default") {
-           await Notification.requestPermission();
-         }
-         
-         if (Notification.permission === "granted") {
-           // We only send if we haven't notified recently (e.g., today) to avoid spamming on refresh
-           const lastNotif = user.lastMeasurementNotification || 0;
-           const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-           
-           if (now - lastNotif > ONE_DAY_MS) {
-              new Notification("Hora de se pesar! ⚖️", {
-                body: "Já faz 7 dias desde sua última medição. Lembre-se: em jejum, antes do café e água.",
-                icon: "https://cdn-icons-png.flaticon.com/512/3373/3373122.png"
-              });
-              
-              // Update last notification time
-              const updatedLastNotif = now;
-              await updateUserState(user.id, { lastNotification: updatedLastNotif });
-              setCurrentUser({ ...user, lastMeasurementNotification: updatedLastNotif });
-           }
-         }
-       }
+      // Request permission first
+      if ("Notification" in window) {
+        if (Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+
+        if (Notification.permission === "granted") {
+          // We only send if we haven't notified recently (e.g., today) to avoid spamming on refresh
+          const lastNotif = user.lastMeasurementNotification || 0;
+          const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+          if (now - lastNotif > ONE_DAY_MS) {
+            new Notification("Hora de se pesar! ⚖️", {
+              body: "Já faz 7 dias desde sua última medição. Lembre-se: em jejum, antes do café e água.",
+              icon: "https://cdn-icons-png.flaticon.com/512/3373/3373122.png"
+            });
+
+            // Update last notification time
+            const updatedLastNotif = now;
+            await updateUserState(user.id, { lastNotification: updatedLastNotif });
+            setCurrentUser({ ...user, lastMeasurementNotification: updatedLastNotif });
+          }
+        }
+      }
     }
   };
 
   const handleLogin = (user: UserAccount) => {
     setCurrentUser(user);
     setSavedPlans(user.savedPlans);
-    
+
     // Sync state from cloud
     if (user.currentProfile && user.currentPlan) {
       setUserProfile(user.currentProfile);
@@ -104,7 +113,7 @@ const App: React.FC = () => {
     } else {
       setView('onboarding');
     }
-    
+
     checkMeasurementNotification(user);
   };
 
@@ -119,9 +128,9 @@ const App: React.FC = () => {
   const handleAddLog = async (log: BodyMetricLog) => {
     if (currentUser) {
       // Optimistic update
-      const updatedLogs = [...currentUser.logs, log].sort((a,b) => a.date - b.date);
+      const updatedLogs = [...currentUser.logs, log].sort((a, b) => a.date - b.date);
       setCurrentUser({ ...currentUser, logs: updatedLogs });
-      
+
       // Async DB update
       await addBodyLog(currentUser.id, log);
     }
@@ -139,7 +148,7 @@ const App: React.FC = () => {
       setView('shopping_review');
     } catch (err: any) {
       setError(err.message || "Erro ao gerar lista inicial.");
-      setUserProfile(null); 
+      setUserProfile(null);
     } finally {
       setIsLoading(false);
       setLoadingStep('');
@@ -155,14 +164,14 @@ const App: React.FC = () => {
     try {
       const confirmedList: ShoppingListResult = {
         estimatedCost: suggestedShoppingList.estimatedCost,
-        items: suggestedShoppingList.items.filter(item => selectedItems.includes(item.name)).map(item => ({...item, checked: true}))
+        items: suggestedShoppingList.items.filter(item => selectedItems.includes(item.name)).map(item => ({ ...item, checked: true }))
       };
-      
+
       setFinalShoppingList(confirmedList);
 
       const plan = await generateWeeklyPlan(userProfile, selectedItems);
       setWeeklyPlan(plan);
-      
+
       // Save current state to cloud
       await updateUserState(currentUser.id, {
         profile: userProfile,
@@ -190,7 +199,7 @@ const App: React.FC = () => {
 
   const handleSavePlan = async (name: string, currentPlan: WeeklyPlanData, currentList: ShoppingListResult | null) => {
     if (!userProfile || !currentUser) return;
-    
+
     const newSavedPlan: SavedPlan = {
       id: Math.random().toString(36).substr(2, 9),
       name: name,
@@ -207,7 +216,7 @@ const App: React.FC = () => {
 
     // Async Save
     await savePlanToStorage(currentUser.id, newSavedPlan);
-    
+
     alert("Plano salvo com sucesso!");
   };
 
@@ -217,7 +226,7 @@ const App: React.FC = () => {
     setUserProfile(saved.userProfile);
     setWeeklyPlan(saved.planData);
     setFinalShoppingList(saved.shoppingList);
-    
+
     // Update active state in DB when loading a saved plan
     await updateUserState(currentUser.id, {
       profile: saved.userProfile,
@@ -236,7 +245,7 @@ const App: React.FC = () => {
       const updated = savedPlans.filter(p => p.id !== id);
       setSavedPlans(updated);
       setCurrentUser({ ...currentUser, savedPlans: updated });
-      
+
       // Async
       await deletePlanFromStorage(id);
     }
@@ -246,16 +255,16 @@ const App: React.FC = () => {
     setWeeklyPlan(null);
     setSuggestedShoppingList(null);
     setFinalShoppingList(null);
-    
+
     // Clear active state in DB
     if (currentUser) {
-       await updateUserState(currentUser.id, {
-         currentPlan: null,
-         shoppingList: null
-       });
-       setCurrentUser({ ...currentUser, currentPlan: null, currentShoppingList: null });
+      await updateUserState(currentUser.id, {
+        currentPlan: null,
+        shoppingList: null
+      });
+      setCurrentUser({ ...currentUser, currentPlan: null, currentShoppingList: null });
     }
-    
+
     setView('onboarding');
   };
 
@@ -284,11 +293,11 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-red-50 p-6">
         <div className="text-center max-w-sm">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-             {/* Icon */}
+            {/* Icon */}
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Ops! Algo deu errado.</h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <button 
+          <button
             onClick={() => { setError(null); handleReset(); }}
             className="w-full py-3 bg-red-600 text-white rounded-xl font-bold shadow-lg hover:bg-red-700 transition"
           >
@@ -303,7 +312,7 @@ const App: React.FC = () => {
   const renderNav = () => (
     <div className="absolute top-4 right-4 z-50 flex gap-2">
       {view !== 'progress' && (
-        <button 
+        <button
           onClick={() => setView('progress')}
           className="p-2 bg-blue-50 text-blue-700 rounded-full shadow-sm hover:bg-blue-100"
           title="Evolução"
@@ -312,7 +321,7 @@ const App: React.FC = () => {
         </button>
       )}
       {view !== 'dashboard' && weeklyPlan && (
-        <button 
+        <button
           onClick={() => setView('dashboard')}
           className="p-2 bg-green-50 text-green-700 rounded-full shadow-sm hover:bg-green-100"
           title="Meu Plano"
@@ -320,14 +329,14 @@ const App: React.FC = () => {
           <LayoutDashboard size={18} />
         </button>
       )}
-      <button 
+      <button
         onClick={() => setView('saved_plans')}
         className="p-2 bg-pink-50 text-pink-700 rounded-full shadow-sm hover:bg-pink-100"
         title="Meus Planos"
       >
         <FolderHeart size={18} />
       </button>
-      <button 
+      <button
         onClick={handleLogout}
         className="p-2 bg-gray-100 text-gray-700 rounded-full shadow-sm hover:bg-gray-200"
         title="Sair"
@@ -343,8 +352,8 @@ const App: React.FC = () => {
         {renderNav()}
         <div className="h-full overflow-y-auto p-6 pt-16">
           <h2 className="text-2xl font-bold mb-4">Olá, {currentUser?.username.split('@')[0]}!</h2>
-          <ProgressTracker 
-            logs={currentUser?.logs || []} 
+          <ProgressTracker
+            logs={currentUser?.logs || []}
             onAddLog={handleAddLog}
           />
         </div>
@@ -356,8 +365,8 @@ const App: React.FC = () => {
     return (
       <div className="h-screen w-full max-w-md mx-auto bg-gray-50 overflow-hidden relative shadow-2xl md:rounded-3xl md:my-8 md:h-[90vh] border-gray-200 md:border">
         {renderNav()}
-        <PlanDashboard 
-          planData={weeklyPlan} 
+        <PlanDashboard
+          planData={weeklyPlan}
           userProfile={userProfile}
           initialShoppingList={finalShoppingList}
           onReset={handleReset}
@@ -370,7 +379,7 @@ const App: React.FC = () => {
   if (view === 'shopping_review' && userProfile && suggestedShoppingList) {
     return (
       <Container>
-        <ShoppingListReview 
+        <ShoppingListReview
           initialList={suggestedShoppingList}
           onConfirm={handleShoppingListConfirmed}
           isLoading={isLoading}
@@ -383,7 +392,7 @@ const App: React.FC = () => {
   if (view === 'saved_plans') {
     return (
       <Container>
-        <SavedPlansView 
+        <SavedPlansView
           plans={savedPlans}
           onLoad={handleLoadPlan}
           onDelete={handleDeletePlan}
@@ -396,11 +405,11 @@ const App: React.FC = () => {
   // Default: Onboarding (Input)
   return (
     <div className="h-screen w-full max-w-md mx-auto bg-white overflow-hidden relative shadow-2xl md:rounded-3xl md:my-8 md:h-[90vh] border-gray-200 md:border flex flex-col">
-       {renderNav()}
-      <Onboarding 
-        onComplete={handleProfileComplete} 
+      {renderNav()}
+      <Onboarding
+        onComplete={handleProfileComplete}
         isLoading={isLoading}
-        loadingMessage={loadingStep} 
+        loadingMessage={loadingStep}
       />
     </div>
   );
